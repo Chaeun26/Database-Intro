@@ -1,0 +1,146 @@
+/*Create tables*/
+CREATE TABLE AUTHOR(
+Id        VARCHAR(5)    NOT NULL,
+Fname     VARCHAR(20)   NOT NULL,
+Lname     VARCHAR(20)   NOT NULL,
+Mname     VARCHAR(20)   NOT NULL,
+Bdate     DATE,       
+PRIMARY KEY(Id));
+
+CREATE TABLE WAREHOUSE(
+Id          VARCHAR(5)     NOT NULL,
+Location    VARCHAR(20)    NOT NULL,
+Capacity    INT            NOT NULL,
+PRIMARY KEY(Id));
+
+CREATE TABLE CUSTOMER(
+Username        VARCHAR(20)    NOT NULL,
+Password        VARCHAR(10)    NOT NULL,
+Email           VARCHAR(40)    NOT NULL,
+Phone_num       INT            NOT NULL,
+PRIMARY KEY(Username));
+
+CREATE TABLE PUBLISHER(
+Name       VARCHAR(20)    NOT NULL,
+Email      VARCHAR(40)    NOT NULL,
+PRIMARY KEY(Name));
+
+CREATE TABLE CREDIT_CARD(
+Number        INT            NOT NULL,
+Company       VARCHAR(20)    NOT NULL,
+Cvv           INT            NOT NULL,
+Name          VARCHAR(20)    NOT NULL,
+Bill_address  VARCHAR(40)    NOT NULL,
+PRIMARY KEY(Number));
+
+CREATE TABLE PAYPAL(
+Username    VARCHAR(20)        NOT NULL,
+Password    VARCHAR(10)        NOT NULL,
+PRIMARY KEY(Username));
+
+CREATE TABLE BOOK(
+Isbn        VARCHAR(13)            NOT NULL, -- ISBN is 10 digits or 13 digits
+Price       DECIMAL(7,2)            NOT NULL,
+Title       VARCHAR(40)    NOT NULL,
+Year        INT            NOT NULL,
+P_name      VARCHAR(20)    NOT NULL,
+PRIMARY KEY(Isbn),
+FOREIGN KEY(P_name) REFERENCES PUBLISHER(Name));
+
+CREATE TABLE GENRE(
+B_isbn        VARCHAR(13)            NOT NULL,
+Genre         VARCHAR(20)    NOT NULL,
+PRIMARY KEY(B_isbn, Genre),
+FOREIGN KEY(B_isbn) REFERENCES BOOK(Isbn));
+
+CREATE TABLE ORDERS(
+Order_num           CHAR(10)        NOT NULL,
+Order_date          DATE            NOT NULL,
+Ship_address        VARCHAR(100)    NOT NULL,
+Customer_username   VARCHAR(20)     NOT NULL,
+Creditcard_number   INT,
+Paypal_username     VARCHAR(20),
+PRIMARY KEY(Order_num),
+FOREIGN KEY(Customer_username) REFERENCES CUSTOMER(Username),
+FOREIGN KEY(Creditcard_number) REFERENCES CREDIT_CARD(Number),
+FOREIGN KEY(Paypal_username) REFERENCES PAYPAL(Username));
+
+CREATE TABLE STORES(
+B_isbn        INT            NOT NULL,
+W_id          VARCHAR(5)     NOT NULL,
+Quantity      INT            NOT NULL,
+PRIMARY KEY(B_isbn,W_id),
+FOREIGN KEY(B_isbn) REFERENCES BOOK(Isbn),
+FOREIGN KEY(W_id) REFERENCES WAREHOUSE(Id));
+
+CREATE TABLE WRITES(
+B_isbn        VARCHAR(13)            NOT NULL,
+A_id          VARCHAR(5)     NOT NULL,
+PRIMARY KEY(B_isbn, A_id),
+FOREIGN KEY(B_isbn) REFERENCES BOOK(Isbn),
+FOREIGN KEY(A_id) REFERENCES AUTHOR(Id));
+
+CREATE TABLE ADDED_TO(
+B_isbn                VARCHAR(13)            NOT NULL,
+O_order_num           CHAR(10)       NOT NULL,
+Quantity              INT            NOT NULL,
+PRIMARY KEY(B_isbn,O_order_num),
+FOREIGN KEY(B_isbn) REFERENCES BOOK(Isbn),
+FOREIGN KEY(O_order_num) REFERENCES ORDERS(Order_num));
+
+CREATE TABLE REFUND(
+Order_num CHAR(10) NOT NULL,
+Item VARCHAR(20) NOT NULL, -- ISBN for refunded book
+Count INT NOT NULL,
+Reason TEXT, --CAN BE NULL or one sentence
+Method CHAR(2) NOT NULL, -- 'PO' means point, 'MO' means money(credit card)
+PRIMARY KEY(Order_num,Item),
+FOREIGN KEY(Order_num) REFERENCES ORDERS(Order_num));
+
+/*Create Indexing*/
+-- INDEXING BY THE SAME PUBLISHER
+CREATE INDEX BOOKS_WITH_SAME_PUBLISHER ON BOOK (P_name);
+
+-- INDEXING BY THE PRICE OF THE BOOK
+CREATE INDEX BOOKS_WITH_PRICE ON BOOK (Price);
+
+-- INDEXING BY THE LOCATION OF THE WAREHOUSE
+CREATE INDEX WAREHOUSE_WITH_LOCATION ON WAREHOUSE (Location);
+
+-- INDEXING BY THE SAME GENRE OF THE GENRE
+CREATE INDEX SAME_GENRE ON GENRE (Genre);
+
+-- INDEXING BY THE QUANTITY OF THE ADDED_TO
+CREATE INDEX ORDERED_BOOKS_WITH_QUANTITY ON ADDED_TO (Quantity);
+
+
+/*Create view*/
+-- retrieve the number of sold books for each genre 
+CREATE VIEW VIEW1 AS
+SELECT G.Genre, SUM(AT.Quantity) AS num_of_sold_books
+FROM GENRE AS G, ADDED_TO AS AT
+WHERE G.B_isbn=AT.B_isbn
+GROUP BY G.Genre
+ORDER BY num_of_sold_books DESC;
+
+-- retrieve a specific customer (e.g., Edwin5) for an order of preferred genres based on his/her purchasing record
+CREATE VIEW VIEW2 AS
+SELECT G.Genre, COUNT(AT.B_isbn) AS number_of_books
+FROM ORDERS AS O, ADDED_TO AS AT, GENRE AS G
+WHERE O.Order_num=AT.O_order_num
+    AND AT.B_isbn=G.B_isbn
+    AND O.Customer_username='Edwin5'
+GROUP BY G.Genre
+ORDER BY number_of_books DESC;
+
+-- retrieve the book's ISBN with less than 100 in stock in each warehouse in Columbus 
+CREATE VIEW VIEW3 AS
+SELECT AT.B_isbn AS ISBN, W.Id AS warehouse_id, (SUM(S.Quantity)-SUM(AT.Quantity)) AS remaining_stock
+FROM STORES AS S, ADDED_TO AS AT, BOOK AS B, WAREHOUSE AS W
+WHERE B.Isbn=AT.B_isbn
+    AND S.B_isbn=AT.B_isbn
+    AND W.Id=S.W_id
+    AND W.Location = 'Columbus'
+GROUP BY S.B_isbn
+HAVING remaining_stock < 100
+ORDER BY W.Id;

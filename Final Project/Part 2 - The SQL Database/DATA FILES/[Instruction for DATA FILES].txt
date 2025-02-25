@@ -1,0 +1,19 @@
+** This is instructions on how to use data files **
+
+Before importing data with data files, tables are created first using /*Create tables*/ parts in the SQL CREATE txt file
+Tables with parentheses import data according to the order in parentheses
+
+AUTHOR data is imported
+WAREHOUSE data is imported
+CUSTOMER data is imported
+PUBLISHER data is imported
+CREDIT_CARD data is imported
+PAYPAL data is imported
+
+BOOK data is imported (after PUBLISHER data is imported)
+GENRE data is imported (after BOOK data is imported)
+ORDERS data is imported (after BOOK, CUSTOMER, CREDIT_CARD, and PAYPAL data are imported)
+STORES data is imported (after BOOK and WAREHOUSE data are imported)
+WRITES data is imported (after BOOK and AUTHOR data are imported)
+ADDED_TO data is imported (after BOOK and ORDERS data are imported)
+REFUND data is imported (after ORDERS data is imported)

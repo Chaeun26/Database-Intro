@@ -1,0 +1,49 @@
+-- INSERT
+
+-- adding new book (If there is no publisher, the publisher needs to be inserted first)
+INSERT INTO BOOK VALUES ('1503215679', 10.47, 'The Adventures of Tom Sawyer', 'Addison-Wesley Publishing');
+-- after insert book, its genre can be inserted
+INSERT INTO GENRE VALUES ('1503215679', 'Literature & Fiction');
+-- after insert book, warehouses that store the book need to be noticed
+INSERT INTO STORES VALUES ('1503215679', 'W4', 20); 
+INSERT INTO STORES VALUES ('1503215679', 'W5', 10); 
+
+-- adding new publisher
+INSERT INTO PUBLISHER VALUES ('CreateSpace Independent Publishing Platform', 'CIPP@gmail.com');
+
+-- adding new author
+INSERT INTO AUTHOR VALUES ('A103', 'Mark', 'Twain', NULL, '1835-11-30');
+-- after insert book & author, they need to be connected through WRITES
+INSERT INTO WRITES VALUES ('1503215679', 'A103');
+
+--adding new customer
+INSERT INTO CUSTOMER VALUES ('JamesPark', 'sdasqwwe', 'park@gmail.com', 6141232343);
+
+-- DELETE
+
+--removing book
+--(removing all rows which reference the ISBN='1503215679', if they exist)
+DELETE FROM WRITES WHERE B_isbn = '1503215679';
+DELETE FROM GENRE WHERE B_isbn = '1503215679';
+DELETE FROM STORES WHERE B_isbn = '1503215679';
+DELETE FROM ADDED_TO WHERE B_isbn = '1503215679';
+DELETE FROM BOOK WHERE Isbn = '1503215679';
+
+--removing publisher
+DELETE FROM WRITES WHERE B_isbn IN (SELECT Isbn FROM BOOK WHERE P_name='CreateSpace Independent Publishing Platform'); -- if they exist
+DELETE FROM GENRE WHERE B_isbn IN (SELECT Isbn FROM BOOK WHERE P_name='CreateSpace Independent Publishing Platform'); -- if they exist
+DELETE FROM STORES WHERE B_isbn IN (SELECT Isbn FROM BOOK WHERE P_name='CreateSpace Independent Publishing Platform'); -- if they exist
+DELETE FROM ADDED_TO WHERE B_isbn IN (SELECT Isbn FROM BOOK WHERE P_name='CreateSpace Independent Publishing Platform'); -- if they exist
+DELETE FROM BOOK WHERE P_name='CreateSpace Independent Publishing Platform'; -- if they exist
+DELETE FROM PUBLISHER WHERE Name='CreateSpace Independent Publishing Platform';
+
+--removing author
+--(removing all rows which reference the author's id='A103', if they exist)
+DELETE FROM WRITES WHERE A_id='A103';
+DELETE FROM AUTHOR WHERE Id='A103';
+
+--removing customer
+DELETE FROM ADDED_TO WHERE O_order_num IN (SELECT Order_num FROM ORDERS WHERE Customer_username='JamesPark'); -- if they exist
+DELETE FROM REFUND WHERE Order_num IN (SELECT Order_num FROM ORDERS WHERE Customer_username='JamesPark'); -- if they exist
+DELETE FROM ORDERS WHERE Customer_username ='JamesPark'; -- if they exist
+DELETE FROM CUSTOMER WHERE Username='JamesPark';

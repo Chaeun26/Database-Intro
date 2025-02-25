@@ -1,0 +1,190 @@
+--Section2-2 Sample SQL queries
+
+--Find the titles of all books by Pratchett that cost less than $10
+
+SELECT Title
+FROM BOOK AS B, AUTHOR AS A, WRITES AS W
+WHERE B.Isbn=W.B_isbn AND A.Id=W.A_Id
+	AND A.Lname = 'Pratchett'
+	AND B.Price < 10.0;
+
+--Give all the titles and their dates of purchase made by a single customer (you choose how to designate the customers)
+
+SELECT B.Title, C.Username, O.Order_date
+FROM BOOK AS B, CUSTOMER AS C, ADDED_TO AS A, ORDERS AS O
+WHERE B.Isbn=A.B_isbn
+	AND  A.O_order_num = O.Order_num
+	AND C.Username = O.Customer_username
+	AND C.Username = 'Gilbert_0';
+
+--Find the titles and ISBNs for all books with less than 5 copies in stock
+
+SELECT B.Title, B.Isbn
+FROM BOOK AS B, STORES AS S
+WHERE B.Isbn = S.B_isbn
+	AND S.Quantity < 5;
+
+--Give all the customers who purchased a book by Pratchett and the titles of Pratchett books they purchased
+	
+SELECT C.Username, B.Title
+FROM CUSTOMER AS C, ADDED_TO AS AT, ORDERS AS O, BOOK AS B, AUTHOR AS A, WRITES AS W
+WHERE C.Username=O.Customer_username
+    AND O.Order_num=AT.O_order_num
+    AND B.Isbn=AT.B_isbn
+    AND B.Isbn=W.B_isbn
+    AND W.A_id=A.Id
+    AND A.Lname = 'Pratchett';
+
+--Find the total number of books purchased by a single customer (you choose how to designate the customer)
+
+SELECT SUM(AT.Quantity)
+FROM CUSTOMER AS C, ADDED_TO AS AT, ORDERS AS O
+WHERE C.Username=O.Customer_username
+    AND O.Order_num=AT.O_order_num
+    AND C.Username = 'Gilbert_0'
+GROUP BY C.Username;
+
+--Find the customer who has purchased the most books and the total number of books they have purchased
+
+SELECT	Username, SUM(AT.Quantity)
+FROM	CUSTOMER AS C, ADDED_TO AS AT, ORDERS AS O
+WHERE C.Username=O.Customer_username
+    AND O.Order_num=AT.O_order_num
+GROUP BY C.Username
+HAVING SUM(AT.Quantity) IN (
+    SELECT MAX(Total_book)
+    FROM (SELECT SUM(AT.Quantity) AS Total_book
+             FROM CUSTOMER AS C, ADDED_TO AS AT, ORDERS AS O
+             WHERE C.Username=O.Customer_username
+                 AND O.Order_num=AT.O_order_num
+             GROUP BY C.Username)
+);
+
+--Retrieve the usernames of customers who use Paypal for payment
+
+SELECT DISTINCT(C.Username)
+FROM    CUSTOMER AS C, ORDERS AS O
+WHERE    C.Username = O.Customer_username
+        AND O.Creditcard_number IS NULL;
+
+--Find the warehouse with the greatest quantity of a certain book
+
+SELECT  W.Id, W.Location
+FROM    STORES AS S, WAREHOUSE AS W
+WHERE    W.Id = S.W_id AND S.B_isbn = '1579902944'
+GROUP BY S.B_isbn
+HAVING S.Quantity = MAX(S.Quantity);
+
+--Find all the items to refunded on orders from a specific date
+
+SELECT DISTINCT    R.Item AS refunded_book_isbn
+FROM	        REFUND AS R, ORDERS AS O
+WHERE	        R.Order_num = O.Order_num AND O.Order_date = '2022-10-10';
+
+--Provide a list of customer names, along with the total dollar amount each customer has spent.
+	
+SELECT C.Username, SUM(AT.Quantity*B.Price) AS Total_Dollar
+FROM CUSTOMER AS C, ORDERS AS O, ADDED_TO AS AT, BOOK AS B
+WHERE C.Username = O.Customer_username 
+    AND O.Order_num = AT.O_order_num 
+    AND AT.B_isbn = B.Isbn
+GROUP BY C.Username;
+
+--Provide a list of customer names and e-mail addresses for customers who have spent more than the average customer.
+
+SELECT T.Name, T.Email, T.Each_total
+FROM (SELECT C.Username AS Name, C.Email AS Email, SUM(AT.Quantity*B.Price) AS Each_total
+        FROM CUSTOMER AS C, ORDERS AS O, ADDED_TO AS AT, BOOK AS B
+        WHERE C.Username = O.Customer_username 
+         AND O.Order_num = AT.O_order_num 
+         AND AT.B_isbn = B.Isbn
+        GROUP BY C.Username) AS T
+GROUP BY T.Name	  
+HAVING T.Each_total > AVG((SELECT SUM(AT.Quantity*B.Price)
+                            FROM CUSTOMER AS C, ORDERS AS O, ADDED_TO AS AT, BOOK AS B
+                            WHERE C.Username = O.Customer_username 
+                                AND O.Order_num = AT.O_order_num 
+                                AND AT.B_isbn = B.Isbn
+                            GROUP BY C.Username));
+
+--Provide a list of the titles in the database and associated total copies sold to customers, sorted from the title that has sold the most individual copies to the title that has sold the least.
+	
+SELECT B.Title, SUM(AT.Quantity) AS total_copies
+FROM BOOK AS B, ADDED_TO AS AT
+WHERE B.Isbn = AT.B_isbn
+GROUP BY B.Title
+ORDER BY total_copies DESC;
+
+--Provide a list of the titles in the database and associated dollar totals for copies sold to customers, sorted from the title that has sold the highest dollar amount to the title that has sold the smallest.
+	
+SELECT B.Title, SUM(AT.Quantity)*B.Price AS dollar_totals
+FROM BOOK AS B, ADDED_TO AS AT
+WHERE B.Isbn = AT.B_isbn
+GROUP BY B.Title
+ORDER BY dollar_totals DESC;
+
+--Find the most popular author in the database (i.e. the one who has sold the most books)
+
+SELECT A.FName, A.LName
+FROM BOOK AS B, AUTHOR AS A, WRITES AS W
+WHERE B.Isbn=W.B_isbn 
+AND A.Id=W.A_Id 
+AND B.Isbn IN (SELECT AT.B_isbn
+                FROM ADDED_TO AS AT
+                GROUP BY AT.B_isbn
+                HAVING SUM(AT.Quantity) >= (SELECT MAX(Summation.S)
+                                            FROM (SELECT SUM(Quantity) AS S FROM ADDED_TO GROUP BY B_isbn) AS Summation)
+                );
+
+--Find the most profitable author in the database for this store (i.e. the one who has brought in the most money)
+
+SELECT A.FName, A.LName
+FROM BOOK AS B, AUTHOR AS A, WRITES AS W
+WHERE B.Isbn=W.B_isbn 
+AND A.Id=W.A_Id 
+AND B.Isbn IN (SELECT AT.B_isbn
+                FROM ADDED_TO AS AT, BOOK AS B
+                WHERE B.Isbn=AT.B_isbn
+                GROUP BY AT.B_isbn
+                HAVING SUM(AT.Quantity)*B.Price >= (SELECT MAX(Summation.D)
+                                            FROM (SELECT SUM(AT.Quantity)*B.Price AS D FROM ADDED_TO AS AT, BOOK AS B WHERE B.Isbn=AT.B_isbn GROUP BY AT.B_isbn) AS Summation)
+                );
+
+--Provide a list of customer information for customers who purchased anything written by the most profitable author in the database.
+	
+SELECT DISTINCT(O.Customer_username) AS username
+FROM ORDERS AS O, BOOK AS B, WRITES AS W, ADDED_TO AS AT
+WHERE O.Order_num=AT.O_order_num AND B.Isbn=AT.B_isbn AND W.B_isbn=B.Isbn AND
+        W.A_id IN (
+                SELECT A.Id
+                FROM BOOK AS B, AUTHOR AS A, WRITES AS W
+                WHERE B.Isbn=W.B_isbn 
+                AND A.Id=W.A_Id 
+                AND B.Isbn IN (SELECT AT.B_isbn
+                                FROM ADDED_TO AS AT, BOOK AS B
+                                WHERE B.Isbn=AT.B_isbn
+                                GROUP BY AT.B_isbn
+                                HAVING SUM(AT.Quantity)*B.Price >= (SELECT MAX(Summation.D)
+                                                            FROM (SELECT SUM(AT.Quantity)*B.Price AS D FROM ADDED_TO AS AT, BOOK AS B WHERE B.Isbn=AT.B_isbn GROUP BY AT.B_isbn) AS Summation)
+                ));
+
+--Provide the list of authors who wrote the books purchased by the customers who have spent more than the average customer.
+
+SELECT DISTINCT A.Fname, A.Lname
+FROM ADDED_TO AS AT, BOOK AS B, WRITES AS W, AUTHOR AS A, ORDERS AS O
+WHERE AT.B_isbn=B.Isbn AND B.Isbn=W.B_isbn AND W.A_id=A.Id AND O.Order_num=AT.O_order_num AND
+      O.Customer_username IN (
+        SELECT T.Name
+        FROM (SELECT C.Username AS Name, O.Order_num AS Onum, SUM(AT.Quantity*B.Price) AS Each_total
+                FROM CUSTOMER AS C, ORDERS AS O, ADDED_TO AS AT, BOOK AS B
+                WHERE C.Username = O.Customer_username 
+                 AND O.Order_num = AT.O_order_num 
+                 AND AT.B_isbn = B.Isbn
+                GROUP BY C.Username) AS T
+        GROUP BY T.Name	  
+        HAVING T.Each_total > AVG((SELECT SUM(AT.Quantity*B.Price)
+                                    FROM CUSTOMER AS C, ORDERS AS O, ADDED_TO AS AT, BOOK AS B
+                                    WHERE C.Username = O.Customer_username 
+                                        AND O.Order_num = AT.O_order_num 
+                                        AND AT.B_isbn = B.Isbn
+                            GROUP BY C.Username)));
